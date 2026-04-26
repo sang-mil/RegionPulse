@@ -68,6 +68,17 @@ const generateResponse = (persona: Persona, stance: Stance, question: string, ta
   return `${persona.region}에 사는 ${persona.ageGroup} ${persona.occupation} 입장에서, "${question}"에 대해 ${tone} 특히 ${tags.join(', ')} 관점이 중요합니다.`;
 };
 
+const calculateMatchScore = (persona: Persona, input: SurveyInput): number => {
+  let score = 0;
+  if (input.filters.regions.includes(persona.region)) score += 3;
+  if (input.filters.ageGroups.includes(persona.ageGroup)) score += 2;
+  if (input.filters.educations.includes(persona.education)) score += 2;
+  if (input.filters.regions.length === 0) score += 1;
+  if (input.filters.ageGroups.length === 0) score += 1;
+  if (input.filters.educations.length === 0) score += 1;
+  return score;
+};
+
 const samplePersonas = (list: Persona[], sampleSize: number): Persona[] => {
   const shuffled = [...list].sort((a, b) => (a.id > b.id ? 1 : -1));
   const step = Math.max(1, Math.floor(shuffled.length / sampleSize));
@@ -102,14 +113,25 @@ const buildGroupStats = (rows: PersonaSimulation[], key: 'region' | 'ageGroup' |
 };
 
 export const runSimulation = (input: SurveyInput): SimulationResult => {
-  const eligible = personas.filter((persona) => {
+  const strictEligible = personas.filter((persona) => {
     const regionMatch = input.filters.regions.length === 0 || input.filters.regions.includes(persona.region);
     const ageMatch = input.filters.ageGroups.length === 0 || input.filters.ageGroups.includes(persona.ageGroup);
     const eduMatch = input.filters.educations.length === 0 || input.filters.educations.includes(persona.education);
     return regionMatch && ageMatch && eduMatch;
   });
 
-  const sampled = samplePersonas(eligible, input.sampleSize);
+  const strictSampled = samplePersonas(strictEligible, input.sampleSize);
+  const strictSet = new Set(strictSampled.map((p) => p.id));
+  const needed = input.sampleSize - strictSampled.length;
+
+  const supplemented = needed > 0
+    ? [...personas]
+      .filter((persona) => !strictSet.has(persona.id))
+      .sort((a, b) => calculateMatchScore(b, input) - calculateMatchScore(a, input))
+      .slice(0, needed)
+    : [];
+
+  const sampled = [...strictSampled, ...supplemented];
 
   const raw = sampled.map((persona) => {
     const stance = decideStance(input.question, persona);
@@ -120,9 +142,12 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
       region: persona.region,
       ageGroup: persona.ageGroup,
       education: persona.education,
+      occupation: persona.occupation,
+      description: persona.description,
       stance,
       response: generateResponse(persona, stance, input.question, tags),
       reasonTags: tags,
+      matchedStrictly: strictSet.has(persona.id),
     } as PersonaSimulation;
   });
 
@@ -156,9 +181,13 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
     .slice(0, 5);
 
   return {
+    id: `sim-${Date.now()}`,
+    createdAt: new Date().toISOString(),
     question: input.question,
     sampledCount,
-    totalEligible: eligible.length,
+    totalEligible: strictEligible.length,
+    strictMatchedCount: strictSampled.length,
+    supplementedCount: supplemented.length,
     stanceCounts,
     stancePercentages,
     byRegion: buildGroupStats(raw, 'region'),

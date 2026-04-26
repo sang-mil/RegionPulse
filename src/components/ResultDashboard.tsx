@@ -5,6 +5,8 @@ import { StatCard } from './StatCard';
 
 interface ResultDashboardProps {
   result: SimulationResult;
+  onSelectPersona: (personaId: string) => void;
+  selectedPersonaId: string | null;
 }
 
 const stanceRows = [
@@ -48,7 +50,7 @@ function GroupTable({ title, rows }: { title: string; rows: SimulationResult['by
   );
 }
 
-export function ResultDashboard({ result }: ResultDashboardProps) {
+export function ResultDashboard({ result, onSelectPersona, selectedPersonaId }: ResultDashboardProps) {
   const chartData = stanceRows.map((row) => ({
     name: row.name,
     count: result.stanceCounts[row.value],
@@ -60,6 +62,11 @@ export function ResultDashboard({ result }: ResultDashboardProps) {
       <div className="rounded-xl bg-indigo-50 p-4 text-sm text-indigo-800">
         본 결과는 실제 여론조사가 아니라 합성 페르소나 기반 사회 반응 시뮬레이션입니다.
       </div>
+      {result.supplementedCount > 0 && (
+        <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+          조건에 정확히 일치한 페르소나는 {result.strictMatchedCount}명이며, 표본 안정성을 위해 유사 페르소나 {result.supplementedCount}명을 보강했습니다.
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="찬성" value={`${result.stancePercentages.support}%`} tone="green" />
@@ -105,7 +112,25 @@ export function ResultDashboard({ result }: ResultDashboardProps) {
         <h3 className="font-semibold">대표 발언 5개</h3>
         <div className="grid gap-3 lg:grid-cols-2">
           {result.representativeQuotes.map((quote) => (
-            <PersonaQuoteCard key={quote.personaId} quote={quote} />
+            <PersonaQuoteCard key={quote.personaId} quote={quote} onSelect={(p) => onSelectPersona(p.personaId)} selected={selectedPersonaId === quote.personaId} />
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="font-semibold">샘플 페르소나 선택</h3>
+        <div className="grid gap-3 lg:grid-cols-3">
+          {result.raw.slice(0, 12).map((row) => (
+            <button
+              key={row.personaId}
+              type="button"
+              onClick={() => onSelectPersona(row.personaId)}
+              className={`rounded-xl border p-3 text-left text-sm ${selectedPersonaId === row.personaId ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white'}`}
+            >
+              <p className="font-semibold">{row.personaName}</p>
+              <p className="text-slate-600">{row.region} · {row.ageGroup} · {row.education}</p>
+              <p className="mt-1 text-xs text-slate-500">{row.matchedStrictly ? '조건 일치' : '유사 조건 보강'}</p>
+            </button>
           ))}
         </div>
       </section>

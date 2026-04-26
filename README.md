@@ -19,10 +19,19 @@ npm run build
 
 ## 구성
 
-- `src/data/personas.ts`: 100명+ mock 페르소나 데이터
+- `src/data/personas.ts`: 200명+ mock 페르소나 데이터
 - `src/lib/simulation.ts`: 필터링/샘플링/입장 생성/집계 로직
+- `src/lib/chat.ts`: 선택 페르소나와의 후속 대화 응답(mock) 로직
 - `src/components/*`: 설문 폼/대시보드/카드 컴포넌트
 - `src/types.ts`: 공통 타입 정의
+
+## MVP 기능
+
+- 조건 필터 기반 시뮬레이션 실행(복수 회 실행 가능)
+- 조건 일치 표본 부족 시 유사 페르소나 자동 보강
+- 대표 발언/태그/분포 시각화
+- 선택한 페르소나와 후속 대화
+- 이전 설문 히스토리(최대 10건) 조회
 
 ## 주의
 

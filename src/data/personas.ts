@@ -42,7 +42,7 @@ const ageBase: Record<AgeGroup, number> = {
   '60대+': 66,
 };
 
-export const personas: Persona[] = Array.from({ length: 102 }, (_, i) => {
+export const personas: Persona[] = Array.from({ length: 204 }, (_, i) => {
   const region = regions[i % regions.length];
   const ageGroup = ageGroups[i % ageGroups.length];
   const education = educations[i % educations.length];

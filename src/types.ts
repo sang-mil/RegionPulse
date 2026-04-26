@@ -65,9 +65,12 @@ export interface PersonaSimulation {
   region: Region;
   ageGroup: AgeGroup;
   education: Education;
+  occupation: string;
+  description: string;
   stance: Stance;
   response: string;
   reasonTags: ReasonTag[];
+  matchedStrictly: boolean;
 }
 
 export interface GroupStats {
@@ -80,9 +83,13 @@ export interface GroupStats {
 }
 
 export interface SimulationResult {
+  id: string;
+  createdAt: string;
   question: string;
   sampledCount: number;
   totalEligible: number;
+  strictMatchedCount: number;
+  supplementedCount: number;
   stanceCounts: Record<Stance, number>;
   stancePercentages: Record<Stance, number>;
   byRegion: GroupStats[];
@@ -91,4 +98,16 @@ export interface SimulationResult {
   topReasonTags: { tag: ReasonTag; count: number }[];
   representativeQuotes: PersonaSimulation[];
   raw: PersonaSimulation[];
+}
+
+export interface SurveyHistoryItem {
+  input: SurveyInput;
+  result: SimulationResult;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
 }
