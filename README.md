@@ -33,6 +33,20 @@ npm run build
 - 선택한 페르소나와 후속 대화
 - 이전 설문 히스토리(최대 10건) 조회
 
+## Opinion API 모듈화
+
+기본값은 기존 로직(builtin opinion engine)이며, 환경변수로 외부 API를 선택할 수 있습니다.
+
+- `VITE_OPINION_PROVIDER=builtin` (기본)
+- `VITE_OPINION_PROVIDER=gemini`
+- `VITE_OPINION_PROVIDER=local_api`
+
+추가 옵션:
+- `VITE_GEMINI_API_KEY=...` (Gemini 사용 시)
+- `VITE_LOCAL_OPINION_API_URL=http://localhost:8080/opinion` (로컬 API 사용 시)
+
+설정이 없거나 API 호출이 실패하면 자동으로 builtin opinion engine으로 fallback 됩니다.
+
 ## 주의
 
 본 도구는 **실제 여론조사 결과를 대체하지 않습니다.**

@@ -151,3 +151,10 @@ export interface ChatMessage {
   content: string;
   createdAt: string;
 }
+
+export interface PersonaChatProfile {
+  speakingStyle: string;
+  keyConcern: string;
+  additionalContext: string;
+  confirmed: boolean;
+}

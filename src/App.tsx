@@ -3,7 +3,7 @@ import { ResultDashboard } from './components/ResultDashboard';
 import { SurveyForm } from './components/SurveyForm';
 import { createChatMessage, generatePersonaReply } from './lib/chat';
 import { runSimulation } from './lib/simulation';
-import { ChatMessage, PersonaSimulation, SimulationResult, SurveyHistoryItem, SurveyInput } from './types';
+import { ChatMessage, PersonaChatProfile, PersonaSimulation, SimulationResult, SurveyHistoryItem, SurveyInput } from './types';
 
 const initialInput: SurveyInput = {
   question: '',
@@ -24,10 +24,11 @@ export default function App() {
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatProfiles, setChatProfiles] = useState<Record<string, PersonaChatProfile>>({});
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsRunning(true);
-    const next = runSimulation(input);
+    const next = await runSimulation(input);
     if (next.totalEligible === 0) setMessage('정확 일치 페르소나는 없지만, 유사 페르소나를 보강해 분석했습니다.');
     else if (next.sampledCount < input.sampleSize) setMessage(`조건 일치 ${next.totalEligible}명 + 유사 보강 ${next.supplementedCount}명으로 총 ${next.sampledCount}명을 분석했습니다.`);
     else setMessage(`총 ${next.sampledCount}명의 합성 페르소나를 분석했습니다.`);
@@ -40,14 +41,16 @@ export default function App() {
   };
 
   const selectedPersona: PersonaSimulation | null = result?.raw.find((row) => row.personaId === selectedPersonaId) ?? null;
+  const selectedProfile = selectedPersonaId ? chatProfiles[selectedPersonaId] : undefined;
 
   const handleSendChat = () => {
-    if (!selectedPersona || !result || !chatInput.trim()) return;
+    if (!selectedPersona || !result || !chatInput.trim() || !selectedProfile?.confirmed) return;
     const user = createChatMessage('user', chatInput);
     const assistant = createChatMessage('assistant', generatePersonaReply({
       persona: selectedPersona,
       surveyQuestion: result.question,
       userMessage: chatInput,
+      profile: selectedProfile,
     }));
     setChatMessages((prev) => [...prev, user, assistant]);
     setChatInput('');
@@ -59,6 +62,21 @@ export default function App() {
     setSelectedPersonaId(item.result.raw[0]?.personaId ?? null);
     setChatMessages([]);
     setMessage(`이전 설문(${new Date(item.result.createdAt).toLocaleString('ko-KR')}) 결과를 불러왔습니다.`);
+  };
+
+  const updateProfile = (patch: Partial<PersonaChatProfile>) => {
+    if (!selectedPersonaId) return;
+    setChatProfiles((prev) => ({
+      ...prev,
+      [selectedPersonaId]: {
+        speakingStyle: '',
+        keyConcern: '',
+        additionalContext: '',
+        confirmed: false,
+        ...(prev[selectedPersonaId] ?? {}),
+        ...patch,
+      },
+    }));
   };
 
   return (
@@ -91,6 +109,41 @@ export default function App() {
                 <p className="mt-2 text-sm text-slate-600">
                   현재 선택: {selectedPersona.personaName} ({selectedPersona.region} · {selectedPersona.ageGroup} · {selectedPersona.occupation})
                 </p>
+
+                <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-semibold">상세 페르소나 입력 (대화 전 설정)</p>
+                  <div className="mt-2 grid gap-2">
+                    <input
+                      value={selectedProfile?.speakingStyle ?? ''}
+                      onChange={(e) => updateProfile({ speakingStyle: e.target.value, confirmed: false })}
+                      placeholder="말투 예: 차분하고 분석적으로"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={selectedProfile?.keyConcern ?? ''}
+                      onChange={(e) => updateProfile({ keyConcern: e.target.value, confirmed: false })}
+                      placeholder="핵심 관심사 예: 생활비 부담"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                    <input
+                      value={selectedProfile?.additionalContext ?? ''}
+                      onChange={(e) => updateProfile({ additionalContext: e.target.value, confirmed: false })}
+                      placeholder="추가 맥락 예: 자녀 교육비 지출이 큼"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => updateProfile({ confirmed: true })}
+                    className="mt-2 rounded-lg bg-slate-800 px-3 py-1 text-xs font-semibold text-white"
+                  >
+                    상세 페르소나 확정
+                  </button>
+                  {!selectedProfile?.confirmed && (
+                    <p className="mt-1 text-xs text-amber-700">대화를 시작하려면 상세 페르소나를 먼저 확정해 주세요.</p>
+                  )}
+                </div>
+
                 <div className="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-lg bg-slate-50 p-3">
                   {chatMessages.length === 0 ? (
                     <p className="text-sm text-slate-500">질문을 입력해 대화를 시작하세요.</p>
@@ -108,7 +161,12 @@ export default function App() {
                     placeholder="추가 질문을 입력하세요"
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
-                  <button type="button" onClick={handleSendChat} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">
+                  <button
+                    type="button"
+                    disabled={!selectedProfile?.confirmed}
+                    onClick={handleSendChat}
+                    className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
                     전송
                   </button>
                 </div>

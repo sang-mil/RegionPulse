@@ -9,7 +9,7 @@ import {
   Stance,
   SurveyInput,
 } from '../types';
-import { generateOpinion } from './opinionEngine';
+import { generateOpinionWithProvider } from './opinionApi';
 
 const stanceLabel: Record<Stance, string> = {
   support: '찬성',
@@ -98,7 +98,7 @@ const questionTypeMap = {
   general: '기타',
 } as const;
 
-export const runSimulation = (input: SurveyInput): SimulationResult => {
+export const runSimulation = async (input: SurveyInput): Promise<SimulationResult> => {
   const normalizedFilters = normalizeInputFilters(input);
   const fallbackOrder: FilterLevel[] = ['region+ageGroup+education', 'region+ageGroup', 'region', 'all'];
   let usedFilterLevel: FilterLevel = 'region+ageGroup+education';
@@ -120,8 +120,8 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
   const strictMatchedCount = sampled.filter((p) => strictSet.has(p.id)).length;
   const supplementedCount = sampled.length - strictMatchedCount;
 
-  const raw = sampled.map((persona) => {
-    const opinion = generateOpinion(persona, input.question);
+  const raw = await Promise.all(sampled.map(async (persona) => {
+    const opinion = await generateOpinionWithProvider(persona, input.question);
     return {
       personaId: persona.id,
       personaName: persona.name,
@@ -139,7 +139,7 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
       signals: opinion.signals,
       topic: opinion.topic,
     } as PersonaSimulation;
-  });
+  }));
 
   const stanceCounts: Record<Stance, number> = { support: 0, oppose: 0, neutral: 0, conditional: 0 };
   raw.forEach((item) => {
