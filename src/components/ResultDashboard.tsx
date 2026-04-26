@@ -51,6 +51,13 @@ function GroupTable({ title, rows }: { title: string; rows: SimulationResult['by
 }
 
 export function ResultDashboard({ result, onSelectPersona, selectedPersonaId }: ResultDashboardProps) {
+  const filterLevelLabel = {
+    'region+ageGroup+education': '지역 + 나이대 + 학력',
+    'region+ageGroup': '지역 + 나이대',
+    region: '지역',
+    all: '전체 페르소나',
+  } as const;
+
   const chartData = stanceRows.map((row) => ({
     name: row.name,
     count: result.stanceCounts[row.value],
@@ -61,6 +68,9 @@ export function ResultDashboard({ result, onSelectPersona, selectedPersonaId }: 
     <section className="space-y-5">
       <div className="rounded-xl bg-indigo-50 p-4 text-sm text-indigo-800">
         본 결과는 실제 여론조사가 아니라 합성 페르소나 기반 사회 반응 시뮬레이션입니다.
+      </div>
+      <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-700">
+        실제 사용된 필터 수준: <span className="font-semibold">{filterLevelLabel[result.usedFilterLevel]}</span>
       </div>
       {result.supplementedCount > 0 && (
         <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">

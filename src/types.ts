@@ -32,6 +32,7 @@ export type ReasonTag =
   | '재정'
   | '생활비'
   | '문화';
+export type FilterLevel = 'region+ageGroup+education' | 'region+ageGroup' | 'region' | 'all';
 
 export interface Persona {
   id: string;
@@ -90,6 +91,7 @@ export interface SimulationResult {
   totalEligible: number;
   strictMatchedCount: number;
   supplementedCount: number;
+  usedFilterLevel: FilterLevel;
   stanceCounts: Record<Stance, number>;
   stancePercentages: Record<Stance, number>;
   byRegion: GroupStats[];

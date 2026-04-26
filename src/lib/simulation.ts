@@ -1,5 +1,6 @@
 import { personas } from '../data/personas';
 import {
+  FilterLevel,
   GroupStats,
   Persona,
   PersonaSimulation,
@@ -68,15 +69,37 @@ const generateResponse = (persona: Persona, stance: Stance, question: string, ta
   return `${persona.region}에 사는 ${persona.ageGroup} ${persona.occupation} 입장에서, "${question}"에 대해 ${tone} 특히 ${tags.join(', ')} 관점이 중요합니다.`;
 };
 
-const calculateMatchScore = (persona: Persona, input: SurveyInput): number => {
-  let score = 0;
-  if (input.filters.regions.includes(persona.region)) score += 3;
-  if (input.filters.ageGroups.includes(persona.ageGroup)) score += 2;
-  if (input.filters.educations.includes(persona.education)) score += 2;
-  if (input.filters.regions.length === 0) score += 1;
-  if (input.filters.ageGroups.length === 0) score += 1;
-  if (input.filters.educations.length === 0) score += 1;
-  return score;
+const normalizeRegion = (value: string): string => value.replace(/\s+/g, '').toLowerCase();
+const normalizeAgeGroup = (value: string): string => value.replace(/\s+/g, '').replace('세', '').toLowerCase();
+const normalizeEducation = (value: string): string => value.replace(/\s+/g, '').toLowerCase();
+
+const normalizeInputFilters = (input: SurveyInput) => ({
+  regions: input.filters.regions.map((v) => normalizeRegion(v)),
+  ageGroups: input.filters.ageGroups.map((v) => normalizeAgeGroup(v)),
+  educations: input.filters.educations.map((v) => normalizeEducation(v)),
+});
+
+const isIncludedOrWildcard = (filterValues: string[], target: string): boolean =>
+  filterValues.length === 0 || filterValues.includes(target);
+
+const matchByLevel = (
+  persona: Persona,
+  normalizedFilters: ReturnType<typeof normalizeInputFilters>,
+  level: FilterLevel,
+): boolean => {
+  const region = normalizeRegion(persona.region);
+  const ageGroup = normalizeAgeGroup(persona.ageGroup);
+  const education = normalizeEducation(persona.education);
+
+  if (level === 'all') return true;
+  if (level === 'region') return isIncludedOrWildcard(normalizedFilters.regions, region);
+  if (level === 'region+ageGroup') {
+    return isIncludedOrWildcard(normalizedFilters.regions, region)
+      && isIncludedOrWildcard(normalizedFilters.ageGroups, ageGroup);
+  }
+  return isIncludedOrWildcard(normalizedFilters.regions, region)
+    && isIncludedOrWildcard(normalizedFilters.ageGroups, ageGroup)
+    && isIncludedOrWildcard(normalizedFilters.educations, education);
 };
 
 const samplePersonas = (list: Persona[], sampleSize: number): Persona[] => {
@@ -113,25 +136,31 @@ const buildGroupStats = (rows: PersonaSimulation[], key: 'region' | 'ageGroup' |
 };
 
 export const runSimulation = (input: SurveyInput): SimulationResult => {
-  const strictEligible = personas.filter((persona) => {
-    const regionMatch = input.filters.regions.length === 0 || input.filters.regions.includes(persona.region);
-    const ageMatch = input.filters.ageGroups.length === 0 || input.filters.ageGroups.includes(persona.ageGroup);
-    const eduMatch = input.filters.educations.length === 0 || input.filters.educations.includes(persona.education);
-    return regionMatch && ageMatch && eduMatch;
-  });
+  const normalizedFilters = normalizeInputFilters(input);
+  const fallbackOrder: FilterLevel[] = ['region+ageGroup+education', 'region+ageGroup', 'region', 'all'];
+  let usedFilterLevel: FilterLevel = 'region+ageGroup+education';
+  const picked = new Map<string, Persona>();
 
-  const strictSampled = samplePersonas(strictEligible, input.sampleSize);
-  const strictSet = new Set(strictSampled.map((p) => p.id));
-  const needed = input.sampleSize - strictSampled.length;
+  for (const level of fallbackOrder) {
+    const levelMatches = personas.filter((persona) => matchByLevel(persona, normalizedFilters, level));
+    const sampledAtLevel = samplePersonas(levelMatches, input.sampleSize);
+    sampledAtLevel.forEach((persona) => {
+      if (picked.size < input.sampleSize && !picked.has(persona.id)) {
+        picked.set(persona.id, persona);
+      }
+    });
+    if (picked.size >= input.sampleSize) {
+      usedFilterLevel = level;
+      break;
+    }
+    usedFilterLevel = level;
+  }
 
-  const supplemented = needed > 0
-    ? [...personas]
-      .filter((persona) => !strictSet.has(persona.id))
-      .sort((a, b) => calculateMatchScore(b, input) - calculateMatchScore(a, input))
-      .slice(0, needed)
-    : [];
-
-  const sampled = [...strictSampled, ...supplemented];
+  const strictEligible = personas.filter((persona) => matchByLevel(persona, normalizedFilters, 'region+ageGroup+education'));
+  const sampled = [...picked.values()].slice(0, Math.min(input.sampleSize, personas.length));
+  const strictSet = new Set(strictEligible.map((p) => p.id));
+  const strictMatchedCount = sampled.filter((p) => strictSet.has(p.id)).length;
+  const supplementedCount = sampled.length - strictMatchedCount;
 
   const raw = sampled.map((persona) => {
     const stance = decideStance(input.question, persona);
@@ -186,8 +215,9 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
     question: input.question,
     sampledCount,
     totalEligible: strictEligible.length,
-    strictMatchedCount: strictSampled.length,
-    supplementedCount: supplemented.length,
+    strictMatchedCount,
+    supplementedCount,
+    usedFilterLevel,
     stanceCounts,
     stancePercentages,
     byRegion: buildGroupStats(raw, 'region'),
