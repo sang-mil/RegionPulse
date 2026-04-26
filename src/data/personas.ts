@@ -33,6 +33,7 @@ const occupations = [
 ];
 const lifestyles = ['절약형', '경험중시형', '가족중심형', '커리어중심형', '안정추구형'];
 const interestsPool = ['부동산', '교육', '복지', '스타트업', '주식', '지역개발', '문화생활', '환경', '교통', '일자리'];
+const skillsPool = ['협업', '문제해결', '고객응대', '데이터분석', '문서작성', '현장운영', '조정', '기획', '소통', '리더십'];
 
 const ageBase: Record<AgeGroup, number> = {
   '20대': 25,
@@ -55,6 +56,10 @@ export const personas: Persona[] = Array.from({ length: 204 }, (_, i) => {
     interestsPool[(i + 4) % interestsPool.length],
     interestsPool[(i + 7) % interestsPool.length],
   ];
+  const skills = [
+    skillsPool[(i + 1) % skillsPool.length],
+    skillsPool[(i + 5) % skillsPool.length],
+  ];
 
   return {
     id: `persona-${i + 1}`,
@@ -67,6 +72,7 @@ export const personas: Persona[] = Array.from({ length: 204 }, (_, i) => {
     incomeLevel: i % 3 === 0 ? '높음' : i % 3 === 1 ? '중간' : '낮음',
     lifestyle,
     interests,
+    skills,
     description: `${region} 거주 ${ageGroup} ${occupation}으로, ${lifestyle} 성향이 강하며 ${interests.join(', ')}에 관심이 큼.`,
   };
 });

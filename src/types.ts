@@ -33,6 +33,38 @@ export type ReasonTag =
   | '생활비'
   | '문화';
 export type FilterLevel = 'region+ageGroup+education' | 'region+ageGroup' | 'region' | 'all';
+export type QuestionType = '경제' | '군사' | '복지' | '교육' | '젠더' | '기타';
+export type Topic =
+  | 'military_security'
+  | 'gender'
+  | 'welfare'
+  | 'education'
+  | 'economy'
+  | 'housing'
+  | 'labor'
+  | 'regional'
+  | 'healthcare'
+  | 'culture'
+  | 'general';
+
+export interface ClassifiedTopic {
+  primary: Topic;
+  secondary?: Topic[];
+  keywords: string[];
+}
+
+export type OpinionSignals = {
+  economicSensitivity: number;
+  traditionPreference: number;
+  fairnessSensitivity: number;
+  localCommunityOrientation: number;
+  institutionalTrust: number;
+  securityConcern: number;
+  welfarePreference: number;
+  youthConcern: number;
+  genderEqualitySensitivity: number;
+  practicalRiskSensitivity: number;
+};
 
 export interface Persona {
   id: string;
@@ -45,6 +77,7 @@ export interface Persona {
   incomeLevel: IncomeLevel;
   lifestyle: string;
   interests: string[];
+  skills?: string[];
   description: string;
 }
 
@@ -72,6 +105,10 @@ export interface PersonaSimulation {
   response: string;
   reasonTags: ReasonTag[];
   matchedStrictly: boolean;
+  confidence: number;
+  personaSignals: string[];
+  signals: OpinionSignals;
+  topic: ClassifiedTopic;
 }
 
 export interface GroupStats {
@@ -92,6 +129,7 @@ export interface SimulationResult {
   strictMatchedCount: number;
   supplementedCount: number;
   usedFilterLevel: FilterLevel;
+  questionType: QuestionType;
   stanceCounts: Record<Stance, number>;
   stancePercentages: Record<Stance, number>;
   byRegion: GroupStats[];

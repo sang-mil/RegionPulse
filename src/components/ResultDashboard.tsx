@@ -67,10 +67,13 @@ export function ResultDashboard({ result, onSelectPersona, selectedPersonaId }: 
   return (
     <section className="space-y-5">
       <div className="rounded-xl bg-indigo-50 p-4 text-sm text-indigo-800">
-        본 결과는 실제 여론조사가 아니라 합성 페르소나 기반 사회 반응 시뮬레이션입니다.
+        본 결과는 실제 여론조사가 아니라 합성 페르소나 기반 사회 반응 시뮬레이션입니다. 이 결과는 실제 설문 응답이 아니라 페르소나 기반 생성 시뮬레이션입니다.
       </div>
       <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-700">
         실제 사용된 필터 수준: <span className="font-semibold">{filterLevelLabel[result.usedFilterLevel]}</span>
+      </div>
+      <div className="rounded-xl bg-violet-50 p-4 text-sm text-violet-800">
+        질문 프레임 분류: <span className="font-semibold">{result.questionType}</span>
       </div>
       {result.supplementedCount > 0 && (
         <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">

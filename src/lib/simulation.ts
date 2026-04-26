@@ -9,64 +9,13 @@ import {
   Stance,
   SurveyInput,
 } from '../types';
-
-const reasonTags: ReasonTag[] = ['경제', '공정성', '지역격차', '세대갈등', '교육', '일자리', '복지', '재정', '생활비', '문화'];
+import { generateOpinion } from './opinionEngine';
 
 const stanceLabel: Record<Stance, string> = {
   support: '찬성',
   oppose: '반대',
   neutral: '중립',
   conditional: '조건부',
-};
-
-const keywordMatrix: Record<ReasonTag, string[]> = {
-  경제: ['경제', '성장', '투자'],
-  공정성: ['공정', '형평', '불평등'],
-  지역격차: ['지역', '수도권', '지방'],
-  세대갈등: ['세대', '청년', '노년'],
-  교육: ['교육', '대학', '학교'],
-  일자리: ['고용', '일자리', '취업'],
-  복지: ['복지', '지원', '돌봄'],
-  재정: ['예산', '재정', '세금'],
-  생활비: ['물가', '생활비', '주거'],
-  문화: ['문화', '여가', '콘텐츠'],
-};
-
-const pickReasonTags = (question: string, persona: Persona): ReasonTag[] => {
-  const hits = reasonTags.filter((tag) => keywordMatrix[tag].some((word) => question.includes(word)));
-  const base = [hits[0], persona.interests.includes('교육') ? '교육' : undefined, persona.interests.includes('일자리') ? '일자리' : undefined].filter(Boolean) as ReasonTag[];
-  const unique = [...new Set(base)];
-  while (unique.length < 2) {
-    unique.push(reasonTags[(persona.age + unique.length) % reasonTags.length]);
-  }
-  return unique.slice(0, 3);
-};
-
-const decideStance = (question: string, persona: Persona): Stance => {
-  let score = 0;
-  if (question.includes('복지') || question.includes('지원')) score += persona.age >= 50 ? 2 : 1;
-  if (question.includes('규제') || question.includes('세금')) score += persona.incomeLevel === '높음' ? -2 : -1;
-  if (question.includes('일자리') || question.includes('고용')) score += persona.ageGroup === '20대' || persona.ageGroup === '30대' ? 2 : 1;
-  if (question.includes('교육')) score += persona.education === '대학원 이상' ? -1 : 1;
-  if (persona.lifestyle === '안정추구형') score += 1;
-  if (persona.lifestyle === '경험중시형') score -= 1;
-
-  if (score >= 2) return 'support';
-  if (score <= -2) return 'oppose';
-  if (Math.abs(score) === 1) return 'conditional';
-  return 'neutral';
-};
-
-const generateResponse = (persona: Persona, stance: Stance, question: string, tags: ReasonTag[]): string => {
-  const tone = stance === 'support'
-    ? '정책 방향에는 공감합니다.'
-    : stance === 'oppose'
-      ? '현 시점에서 추진은 신중해야 합니다.'
-      : stance === 'conditional'
-        ? '취지는 이해하지만 보완이 필요합니다.'
-        : '추가 검토가 필요하다고 봅니다.';
-
-  return `${persona.region}에 사는 ${persona.ageGroup} ${persona.occupation} 입장에서, "${question}"에 대해 ${tone} 특히 ${tags.join(', ')} 관점이 중요합니다.`;
 };
 
 const normalizeRegion = (value: string): string => value.replace(/\s+/g, '').toLowerCase();
@@ -135,6 +84,20 @@ const buildGroupStats = (rows: PersonaSimulation[], key: 'region' | 'ageGroup' |
   return [...map.values()].sort((a, b) => b.total - a.total);
 };
 
+const questionTypeMap = {
+  military_security: '군사',
+  gender: '젠더',
+  welfare: '복지',
+  education: '교육',
+  economy: '경제',
+  housing: '경제',
+  labor: '경제',
+  regional: '경제',
+  healthcare: '복지',
+  culture: '기타',
+  general: '기타',
+} as const;
+
 export const runSimulation = (input: SurveyInput): SimulationResult => {
   const normalizedFilters = normalizeInputFilters(input);
   const fallbackOrder: FilterLevel[] = ['region+ageGroup+education', 'region+ageGroup', 'region', 'all'];
@@ -145,15 +108,10 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
     const levelMatches = personas.filter((persona) => matchByLevel(persona, normalizedFilters, level));
     const sampledAtLevel = samplePersonas(levelMatches, input.sampleSize);
     sampledAtLevel.forEach((persona) => {
-      if (picked.size < input.sampleSize && !picked.has(persona.id)) {
-        picked.set(persona.id, persona);
-      }
+      if (picked.size < input.sampleSize && !picked.has(persona.id)) picked.set(persona.id, persona);
     });
-    if (picked.size >= input.sampleSize) {
-      usedFilterLevel = level;
-      break;
-    }
     usedFilterLevel = level;
+    if (picked.size >= input.sampleSize) break;
   }
 
   const strictEligible = personas.filter((persona) => matchByLevel(persona, normalizedFilters, 'region+ageGroup+education'));
@@ -163,8 +121,7 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
   const supplementedCount = sampled.length - strictMatchedCount;
 
   const raw = sampled.map((persona) => {
-    const stance = decideStance(input.question, persona);
-    const tags = pickReasonTags(input.question, persona);
+    const opinion = generateOpinion(persona, input.question);
     return {
       personaId: persona.id,
       personaName: persona.name,
@@ -173,10 +130,14 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
       education: persona.education,
       occupation: persona.occupation,
       description: persona.description,
-      stance,
-      response: generateResponse(persona, stance, input.question, tags),
-      reasonTags: tags,
+      stance: opinion.stance,
+      response: opinion.response,
+      reasonTags: opinion.reasonTags as ReasonTag[],
       matchedStrictly: strictSet.has(persona.id),
+      confidence: opinion.confidence,
+      personaSignals: opinion.personaSignals,
+      signals: opinion.signals,
+      topic: opinion.topic,
     } as PersonaSimulation;
   });
 
@@ -209,10 +170,13 @@ export const runSimulation = (input: SurveyInput): SimulationResult => {
     .sort((a, b) => stanceLabel[a.stance].localeCompare(stanceLabel[b.stance]))
     .slice(0, 5);
 
+  const primaryTopic = raw[0]?.topic.primary ?? 'general';
+
   return {
     id: `sim-${Date.now()}`,
     createdAt: new Date().toISOString(),
     question: input.question,
+    questionType: questionTypeMap[primaryTopic],
     sampledCount,
     totalEligible: strictEligible.length,
     strictMatchedCount,

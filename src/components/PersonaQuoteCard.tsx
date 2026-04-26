@@ -12,7 +12,17 @@ export function PersonaQuoteCard({ quote, onSelect, selected }: PersonaQuoteCard
       <p className="mb-2 text-sm text-slate-500">
         {quote.personaName} · {quote.region} · {quote.ageGroup} · {quote.education}
       </p>
+      <p className="mb-2 text-xs text-slate-500">
+        topic: {quote.topic.primary} · stance: {quote.stance} · confidence: {Math.round(quote.confidence * 100)}%
+      </p>
       <p className="text-sm leading-relaxed">{quote.response}</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {quote.personaSignals.map((signal) => (
+          <span key={signal} className="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">
+            {signal}
+          </span>
+        ))}
+      </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {quote.reasonTags.map((tag) => (
           <span key={tag} className="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">
